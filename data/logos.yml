@@ -35,3 +35,15 @@ logos:
 
   - name: Google
     url: https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/1200px-Google_2015_logo.svg.png 
+
+  - name: Cat1
+    url: https://cataas.com/cat
+
+  - name: Cat2
+    url: https://cataas.com/cat/
+
+  - name: Cat3
+    url: https://cataas.com/cat/
+    
+  - name: Cat4
+    url: https://cataas.com/cat/

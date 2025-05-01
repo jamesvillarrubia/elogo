@@ -7,9 +7,7 @@ import { readFileSync } from 'fs';
 import { load } from 'js-yaml';
 import { redis } from '../src/lib/redis';
 
-// Check if we're in a build environment
-const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
-
+// Generate ID based on logo name to maintain consistency with existing data
 function generateLogoId(name: string): string {
   return `logo_${name.toLowerCase().replace(/\s+/g, '_')}`;
 }
@@ -17,45 +15,60 @@ function generateLogoId(name: string): string {
 async function importLogos() {
   console.log('Starting logo import process...');
 
-  if (isBuild) {
-    console.log('Build environment detected, skipping logo import');
-    return;
-  }
-
   try {
     // Read logos from YAML
+    console.log('Reading logos.yml...');
     const logosYaml = readFileSync('data/logos.yml', 'utf8');
     const config = load(logosYaml) as { designBrief: string; logos: Array<{ name: string; url: string }> };
 
+    if (!config || !config.logos || !Array.isArray(config.logos)) {
+      throw new Error('Invalid logos.yml format');
+    }
+
     // Store the design brief
     console.log('Storing design brief...');
-    console.log('Design brief content:', config.designBrief);
-    await redis.set('design_brief', config.designBrief);
-    console.log('Design brief stored');
+    if (!config.designBrief) {
+      console.warn('No design brief found in logos.yml');
+    } else {
+      await redis.set('design_brief', config.designBrief);
+      console.log('Design brief stored successfully');
+    }
 
     // Fetch existing logos from Redis
     console.log('Fetching existing logos from Redis...');
     const existingLogos = await redis.hgetall('logos');
-    console.log('Existing logos from Redis:', existingLogos);
+    console.log(`Found ${Object.keys(existingLogos || {}).length} existing logos`);
 
     // Process existing logos
     const processedLogos: Record<string, string> = {};
     if (existingLogos) {
       for (const [key, value] of Object.entries(existingLogos)) {
-        console.log(`Processing existing logo key: ${key}, value: ${value}`);
         try {
           const logo = JSON.parse(value as string);
           processedLogos[key] = value as string;
-          console.log('Parsed logo:', logo);
+          console.log(`Preserved existing logo: ${logo.name || key}`);
         } catch (error) {
-          console.error(`Error parsing logo ${key}:`, error);
+          console.error(`Error parsing existing logo ${key}:`, error);
         }
       }
     }
 
     // Process logos from YAML
     console.log('Processing logos from YAML...');
+    let newLogos = 0;
+    let updatedLogos = 0;
+
     for (const logo of config.logos) {
+      if (!logo.name) {
+        console.warn('Skipping logo without name');
+        continue;
+      }
+
+      if (!logo.url) {
+        console.warn(`Skipping logo without URL: ${logo.name}`);
+        continue;
+      }
+
       const logoId = generateLogoId(logo.name);
       const logoWithDefaults = {
         ...logo,
@@ -70,23 +83,23 @@ async function importLogos() {
           const existingLogo = JSON.parse(processedLogos[logoId]);
           logoWithDefaults.eloRating = existingLogo.eloRating;
           logoWithDefaults.totalMatches = existingLogo.totalMatches;
-          console.log(`Preserved existing logo data for ${logo.name}:`, {
-            eloRating: logoWithDefaults.eloRating,
-            totalMatches: logoWithDefaults.totalMatches
-          });
+          updatedLogos++;
+          console.log(`Updated existing logo: ${logo.name} (preserved ELO: ${logoWithDefaults.eloRating})`);
         } catch (error) {
           console.error(`Error parsing existing logo ${logoId}:`, error);
         }
+      } else {
+        newLogos++;
+        console.log(`Adding new logo: ${logo.name}`);
       }
 
-      console.log(`Adding logo ${logoId}:`, logoWithDefaults);
       processedLogos[logoId] = JSON.stringify(logoWithDefaults);
     }
 
     // Store all logos
     console.log('Storing all logos...');
     await redis.hset('logos', processedLogos);
-    console.log('Logos stored successfully');
+    console.log(`Logo import complete. Added ${newLogos} new logos, updated ${updatedLogos} existing logos.`);
 
   } catch (error) {
     console.error('Error importing logos:', error);
@@ -98,4 +111,5 @@ async function importLogos() {
   }
 }
 
+// Run the import
 importLogos(); 
