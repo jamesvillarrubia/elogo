@@ -9,6 +9,7 @@
     "lint": "next lint",
     "init-data": "tsx scripts/init-sample-data.ts",
     "import-logos": "tsx scripts/import-logos.ts",
+    "inspect-redis": "tsx scripts/inspect-redis.ts",
     "clear-redis": "tsx scripts/clear-redis.ts",
     "redis:up": "docker-compose up -d redis",
     "redis:down": "docker-compose down",
