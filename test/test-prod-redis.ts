@@ -1,77 +1,56 @@
+import { createClient } from 'redis';
+import { Logo } from '../src/types';
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { createClient } from 'redis';
 
 // Load environment variables from .env.development.local
 config({ path: resolve(process.cwd(), '.env.development.local') });
 
-const redisUrl = process.env.REDIS_URL;
+async function testProductionRedis() {
+  console.log('Testing production Redis connection...');
 
-if (!redisUrl) {
-  console.error('REDIS_URL not found in .env.development.local');
-  process.exit(1);
-}
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    console.error('Error: REDIS_URL not found in .env.development.local');
+    process.exit(1);
+  }
 
-async function testRedisConnection() {
-  console.log('Testing Redis connection with URL:', redisUrl);
-  
+  console.log('Using Redis URL:', redisUrl);
   const client = createClient({
-    url: redisUrl,
-    socket: {
-      reconnectStrategy: (retries) => {
-        console.log(`Redis reconnection attempt ${retries}`);
-        if (retries > 10) {
-          console.error('Redis reconnection failed after 10 attempts');
-          return new Error('Redis reconnection failed');
-        }
-        return Math.min(retries * 100, 3000);
-      }
-    }
-  });
-
-  client.on('error', (err) => {
-    console.error('Redis Client Error:', err);
+    url: redisUrl
   });
 
   try {
     await client.connect();
-    console.log('Successfully connected to Redis');
+    console.log('Connected to production Redis successfully');
 
-    // Test basic operations
-    console.log('\nTesting Redis operations...');
-    
-    // 1. Test GET operation on design brief
-    console.log('\nFetching design brief...');
+    // Check design brief
     const designBrief = await client.get('design_brief');
-    console.log('Design brief:', designBrief || 'Not found');
+    console.log('\nDesign Brief exists:', !!designBrief);
 
-    // 2. Test HGETALL operation on logos
-    console.log('\nFetching all logos...');
+    // Check logos
     const logos = await client.hGetAll('logos');
-    console.log('Logos:', logos);
-    console.log('Number of logos:', Object.keys(logos).length);
-
-    // Print each logo's details
-    Object.entries(logos).forEach(([key, value]) => {
-      try {
-        const logo = JSON.parse(value);
-        console.log(`\nLogo ${key}:`, {
-          name: logo.name,
-          eloRating: logo.eloRating,
-          totalMatches: logo.totalMatches
-        });
-      } catch (error) {
-        console.error(`Error parsing logo ${key}:`, error);
+    console.log('\nLogos in database:', Object.keys(logos || {}).length);
+    
+    if (logos) {
+      console.log('\nLogo details:');
+      for (const [key, value] of Object.entries(logos)) {
+        const logo = JSON.parse(value as string) as Logo;
+        console.log(`- ${logo.name}:`);
+        console.log(`  ELO Rating: ${logo.eloRating}`);
+        console.log(`  Total Matches: ${logo.totalMatches}`);
+        console.log(`  URL: ${logo.url}`);
+        console.log('');
       }
-    });
+    }
 
   } catch (error) {
-    console.error('Failed to connect to Redis:', error);
+    console.error('Error connecting to production Redis:', error);
     process.exit(1);
   } finally {
     await client.quit();
-    console.log('\nRedis connection closed');
+    console.log('Redis connection closed');
   }
 }
 
-testRedisConnection(); 
+testProductionRedis(); 

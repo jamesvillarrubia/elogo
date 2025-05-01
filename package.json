@@ -14,7 +14,7 @@
     "redis:down": "docker-compose down",
     "redis:logs": "docker-compose logs -f redis",
     "redis:restart": "docker-compose restart redis",
-    "test:prod-redis": "tsx scripts/test-prod-redis.ts"
+    "test:prod-redis": "tsx test/test-prod-redis.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.11",
