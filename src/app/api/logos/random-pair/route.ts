@@ -1,12 +1,15 @@
 import { redis } from '@/lib/redis';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { VoteHistory } from '@/types';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+const VOTE_HISTORY_COOKIE = 'elo_voter_history';
 
 export async function GET() {
   try {
@@ -22,10 +25,33 @@ export async function GET() {
       return NextResponse.json({ error: 'Not enough logos for comparison' }, { status: 400, headers: corsHeaders });
     }
 
-    // Get previously compared pairs from cookies
+    // Get vote history from cookies
     const cookieStore = cookies();
-    const comparedPairs = cookieStore.get('compared_pairs')?.value;
-    const comparedPairsSet = new Set(comparedPairs ? comparedPairs.split(',') : []);
+    const voteHistoryCookie = cookieStore.get(VOTE_HISTORY_COOKIE);
+    let voteHistory: VoteHistory = { userId: '', logoComparisons: new Set() };
+    
+    if (voteHistoryCookie) {
+      try {
+        const parsedHistory = JSON.parse(decodeURIComponent(voteHistoryCookie.value));
+        voteHistory = {
+          userId: parsedHistory.userId || '',
+          logoComparisons: new Set(parsedHistory.logoComparisons || [])
+        };
+      } catch (e) {
+        console.error('Error parsing vote history cookie:', e);
+      }
+    }
+
+    // Calculate total possible comparisons
+    const totalPossibleComparisons = (logosArray.length * (logosArray.length - 1)) / 2;
+
+    // If all possible comparisons have been made, return error
+    if (voteHistory.logoComparisons.size >= totalPossibleComparisons) {
+      return NextResponse.json(
+        { error: 'All possible comparisons have been made', allComparisonsComplete: true },
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
     // Find a new pair that hasn't been compared
     let attempts = 0;
@@ -42,10 +68,9 @@ export async function GET() {
       logo1 = logosArray[randomIndex1];
       logo2 = logosArray[randomIndex2];
 
-      const pairKey = `${logo1.id}-${logo2.id}`;
-      const reversePairKey = `${logo2.id}-${logo1.id}`;
-
-      if (!comparedPairsSet.has(pairKey) && !comparedPairsSet.has(reversePairKey)) {
+      const pairKey = [logo1.id, logo2.id].sort().join('-');
+      
+      if (!voteHistory.logoComparisons.has(pairKey)) {
         break;
       }
 
@@ -53,7 +78,10 @@ export async function GET() {
     }
 
     if (attempts === maxAttempts) {
-      return NextResponse.json({ error: 'All possible comparisons have been made' }, { status: 400, headers: corsHeaders });
+      return NextResponse.json(
+        { error: 'All possible comparisons have been made', allComparisonsComplete: true },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     return NextResponse.json({ logo1, logo2 }, { headers: corsHeaders });
