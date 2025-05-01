@@ -4,6 +4,7 @@
  */
 
 import { redis } from '../src/lib/redis';
+import { createClient } from 'redis';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import path from 'path';
@@ -27,8 +28,12 @@ function parseRedisValue(value: any): any {
 }
 
 async function importLogos() {
+  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  const client = createClient({ url: redisUrl });
+
   try {
     console.log('Starting logo import process...');
+    await client.connect();
     
     // Read YAML file
     const yamlPath = path.join(process.cwd(), 'data', 'logos.yml');
@@ -36,12 +41,12 @@ async function importLogos() {
     const config = yaml.load(yamlContent) as { designBrief: string; logos: { name: string; url: string }[] };
     
     // Store the design brief
-    await redis.set('design_brief', config.designBrief);
+    await client.set('design_brief', config.designBrief);
     console.log('Design brief stored');
     
     // Get existing logos from Redis
     console.log('Fetching existing logos from Redis...');
-    const existingLogos = await redis.hgetall('logos');
+    const existingLogos = await client.hGetAll('logos');
     
     // Create a map of existing logos by URL for quick lookup
     const existingLogosByUrl = new Map<string, any>();
@@ -84,7 +89,7 @@ async function importLogos() {
     // Update Redis with the processed logos
     if (Object.keys(logosToUpdate).length > 0) {
       console.log('Updating Redis with processed logos...');
-      await redis.hset('logos', logosToUpdate);
+      await client.hSet('logos', logosToUpdate);
       console.log('Logo import completed successfully');
     } else {
       console.log('No logos to update');
@@ -93,6 +98,15 @@ async function importLogos() {
   } catch (error) {
     console.error('Error during logo import:', error);
     process.exit(1);
+  } finally {
+    // Ensure Redis connection is closed
+    try {
+      await client.quit();
+      console.log('Redis connection closed');
+    } catch (error) {
+      console.error('Error closing Redis connection:', error);
+    }
+    process.exit(0);
   }
 }
 
