@@ -39,24 +39,14 @@ async function importLogos() {
     const existingLogos = await redis.hgetall('logos');
     console.log(`Found ${Object.keys(existingLogos || {}).length} existing logos`);
 
-    // Process existing logos
-    const processedLogos: Record<string, string> = {};
-    if (existingLogos) {
-      for (const [key, value] of Object.entries(existingLogos)) {
-        try {
-          const logo = JSON.parse(value as string);
-          processedLogos[key] = value as string;
-          console.log(`Preserved existing logo: ${logo.name || key}`);
-        } catch (error) {
-          console.error(`Error parsing existing logo ${key}:`, error);
-        }
-      }
-    }
+    // Keep track of valid logo IDs from YAML
+    const validLogoIds = new Set<string>();
 
     // Process logos from YAML
     console.log('Processing logos from YAML...');
     let newLogos = 0;
     let updatedLogos = 0;
+    const processedLogos: Record<string, string> = {};
 
     for (const logo of config.logos) {
       if (!logo.name) {
@@ -70,6 +60,8 @@ async function importLogos() {
       }
 
       const logoId = generateLogoId(logo.name);
+      validLogoIds.add(logoId);
+
       const logoWithDefaults = {
         ...logo,
         id: logoId,
@@ -78,9 +70,9 @@ async function importLogos() {
       };
 
       // If the logo already exists, preserve its ELO rating and total matches
-      if (processedLogos[logoId]) {
+      if (existingLogos && existingLogos[logoId]) {
         try {
-          const existingLogo = JSON.parse(processedLogos[logoId]);
+          const existingLogo = JSON.parse(existingLogos[logoId]);
           logoWithDefaults.eloRating = existingLogo.eloRating;
           logoWithDefaults.totalMatches = existingLogo.totalMatches;
           updatedLogos++;
@@ -96,10 +88,33 @@ async function importLogos() {
       processedLogos[logoId] = JSON.stringify(logoWithDefaults);
     }
 
+    // Find and remove orphaned logos (those in Redis but not in YAML)
+    let removedLogos = 0;
+    if (existingLogos) {
+      for (const [key, value] of Object.entries(existingLogos)) {
+        if (!validLogoIds.has(key)) {
+          try {
+            const logo = JSON.parse(value);
+            console.log(`Removing orphaned logo: ${logo.name || key}`);
+            removedLogos++;
+            // Don't include this logo in processedLogos
+          } catch (error) {
+            console.error(`Error parsing orphaned logo ${key}:`, error);
+          }
+        }
+      }
+    }
+
     // Store all logos
     console.log('Storing all logos...');
-    await redis.hset('logos', processedLogos);
-    console.log(`Logo import complete. Added ${newLogos} new logos, updated ${updatedLogos} existing logos.`);
+    if (Object.keys(processedLogos).length === 0) {
+      console.log('No logos to store, clearing Redis logos hash');
+      await redis.del('logos');
+    } else {
+      await redis.del('logos'); // Clear existing logos first
+      await redis.hset('logos', processedLogos); // Then set the new ones
+    }
+    console.log(`Logo import complete. Added ${newLogos} new logos, updated ${updatedLogos} existing logos, removed ${removedLogos} orphaned logos.`);
 
   } catch (error) {
     console.error('Error importing logos:', error);

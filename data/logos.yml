@@ -33,17 +33,5 @@ logos:
   - name: Facebook
     url: https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Facebook_f_logo_%282019%29.svg/1200px-Facebook_f_logo_%282019%29.svg.png
 
-  - name: Google
-    url: https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/1200px-Google_2015_logo.svg.png 
-
-  - name: Cat1
-    url: https://cataas.com/cat
-
-  - name: Cat2
-    url: https://cataas.com/cat/
-
-  - name: Cat3
-    url: https://cataas.com/cat/
-    
-  - name: Cat4
-    url: https://cataas.com/cat/
+  - name: CatCafe
+    url: https://raw.githubusercontent.com/james-pike/elo-voter/main/public/logos/cat-cafe.png
