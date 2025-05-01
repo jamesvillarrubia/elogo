@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Logo, LogoPair } from '@/types';
 import { hasBeenCompared, updateVoteHistory, clearCookies } from '@/lib/cookies';
 import { calculateNewRatings } from '@/lib/elo';
+import ReactMarkdown from 'react-markdown';
 
 interface LogoComparisonProps {
   logoPair: LogoPair | null;
@@ -123,9 +124,7 @@ export default function LogoComparison({ logoPair, onVote, allVoted, designBrief
         <h2 className="text-2xl font-bold mb-6">Design Brief</h2>
         <div className="bg-white rounded-lg shadow overflow-hidden p-6">
           <div className="prose max-w-none">
-            {designBrief.split('\n').map((line, i) => (
-              <p key={i} className="text-gray-700 mb-2">{line}</p>
-            ))}
+            <ReactMarkdown>{designBrief}</ReactMarkdown>
           </div>
         </div>
       </div>

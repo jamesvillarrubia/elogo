@@ -31,6 +31,7 @@ export interface VoteResult {
 export interface LeaderboardEntry {
   id: string;
   name: string;
+  url: string;
   eloRating: number;
   totalMatches: number;
   winRate?: number;
