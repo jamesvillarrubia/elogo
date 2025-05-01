@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run import-logos",
     "start": "next start",
     "lint": "next lint",
     "init-data": "tsx scripts/init-sample-data.ts",
+    "import-logos": "tsx scripts/import-logos.ts",
     "clear-redis": "tsx scripts/clear-redis.ts",
     "redis:up": "docker-compose up -d redis",
     "redis:down": "docker-compose down",
