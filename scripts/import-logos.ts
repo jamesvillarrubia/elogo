@@ -51,9 +51,9 @@ async function importLogos() {
     // Create a map of existing logos by URL for quick lookup
     const existingLogosByUrl = new Map<string, any>();
     if (existingLogos) {
-      Object.values(existingLogos).forEach(logoStr => {
-        const logo = parseRedisValue(logoStr);
-        existingLogosByUrl.set(logo.url, logo);
+      Object.entries(existingLogos).forEach(([key, value]) => {
+        const logo = parseRedisValue(value);
+        existingLogosByUrl.set(logo.url, { ...logo, id: key });
       });
     }
     
@@ -67,21 +67,23 @@ async function importLogos() {
       
       if (existingLogo) {
         // Preserve existing vote data
-        logosToUpdate[logoId] = JSON.stringify({
+        const updatedLogo = {
           ...logo,
           id: logoId,
           eloRating: existingLogo.eloRating,
           totalMatches: existingLogo.totalMatches
-        });
+        };
+        logosToUpdate[logoId] = JSON.stringify(updatedLogo);
         console.log(`Preserved existing data for logo ${logo.name}`);
       } else {
         // New logo, use default values
-        logosToUpdate[logoId] = JSON.stringify({
+        const newLogo = {
           ...logo,
           id: logoId,
           eloRating: 1400,
           totalMatches: 0
-        });
+        };
+        logosToUpdate[logoId] = JSON.stringify(newLogo);
         console.log(`Added new logo ${logo.name}`);
       }
     }
