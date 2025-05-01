@@ -1,103 +1,201 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import LogoComparison from '@/components/LogoComparison';
+import Leaderboard from '@/components/Leaderboard';
+import { Logo, LogoPair, LeaderboardEntry } from '@/types';
+import { hasBeenCompared } from '@/lib/cookies';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [logoPair, setLogoPair] = useState<LogoPair | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [allVoted, setAllVoted] = useState(false);
+  const [designBrief, setDesignBrief] = useState<string>('');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const fetchRandomPair = async () => {
+    try {
+      console.log('Page: Fetching random pair...');
+      const response = await fetch('/api/logos/random-pair');
+      
+      if (!response.ok) {
+        const data = await response.json();
+        if (response.status === 400 && data.allComparisonsComplete) {
+          console.log('Page: All comparisons complete, setting allVoted to true');
+          setAllVoted(true);
+          setLogoPair(null);
+          return true;
+        }
+        throw new Error('Failed to fetch logo pair');
+      }
+      
+      const data = await response.json();
+      console.log('Page: Received new logo pair:', data);
+      setLogoPair(data);
+      setAllVoted(false);
+      return true;
+    } catch (err) {
+      console.error('Page: Error in fetchRandomPair:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      return false;
+    }
+  };
+
+  const fetchLeaderboard = async () => {
+    try {
+      const response = await fetch('/api/logos/leaderboard');
+      if (!response.ok) {
+        throw new Error('Failed to fetch leaderboard');
+      }
+      const data = await response.json();
+      setLeaderboard(data);
+      return true;
+    } catch (err) {
+      console.error('Error in fetchLeaderboard:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      return false;
+    }
+  };
+
+  const handleVote = async (winnerId: string, loserId: string) => {
+    try {
+      console.log('Page: Sending vote:', { winnerId, loserId });
+      const response = await fetch('/api/logos/vote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ winnerId, loserId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Page: Vote request failed:', errorData);
+        throw new Error(errorData.error || 'Failed to submit vote');
+      }
+
+      const result = await response.json();
+      console.log('Page: Vote result:', result);
+
+      await Promise.all([fetchRandomPair(), fetchLeaderboard()]);
+    } catch (err) {
+      console.error('Page: Error in handleVote:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  useEffect(() => {
+    const initialize = async () => {
+      console.log('Page: Starting initialization');
+      setIsLoading(true);
+      setError(null);
+      try {
+        // Fetch design brief
+        console.log('Page: Fetching design brief...');
+        const briefResponse = await fetch('/api/design-brief');
+        console.log('Page: Design brief response status:', briefResponse.status);
+        if (briefResponse.ok) {
+          const briefData = await briefResponse.json();
+          console.log('Page: Setting design brief');
+          setDesignBrief(briefData.designBrief);
+        } else {
+          console.error('Page: Failed to fetch design brief:', briefResponse.status);
+        }
+
+        // Fetch initial pair
+        console.log('Page: Fetching initial logo pair...');
+        const pairResponse = await fetch('/api/logos/random-pair');
+        console.log('Page: Random pair response status:', pairResponse.status);
+        
+        if (!pairResponse.ok) {
+          if (pairResponse.status === 400) {
+            console.log('Page: Initial fetch - all comparisons complete');
+            setAllVoted(true);
+            setLogoPair(null);
+          } else {
+            const errorData = await pairResponse.json();
+            console.error('Page: Failed to fetch logo pair:', errorData);
+            throw new Error(errorData.error || 'Failed to fetch logo pair');
+          }
+        } else {
+          const data = await pairResponse.json();
+          console.log('Page: Initial logo pair:', data);
+          setLogoPair(data);
+          setAllVoted(false);
+        }
+
+        // Fetch leaderboard
+        console.log('Page: Fetching leaderboard...');
+        const leaderboardResponse = await fetch('/api/logos/leaderboard');
+        console.log('Page: Leaderboard response status:', leaderboardResponse.status);
+        if (leaderboardResponse.ok) {
+          const leaderboardData = await leaderboardResponse.json();
+          console.log('Page: Setting leaderboard data');
+          setLeaderboard(leaderboardData);
+        } else {
+          console.error('Page: Failed to fetch leaderboard:', leaderboardResponse.status);
+        }
+      } catch (err) {
+        console.error('Page: Error in initialize:', err);
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        console.log('Page: Initialization complete, setting isLoading to false');
+        setIsLoading(false);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  if (isLoading) {
+    console.log('Page: Rendering loading state');
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error: {error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen p-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-4xl font-bold text-center mb-8">
+          Logo ELO Ranking System
+        </h1>
+        
+        <div className="mb-12">
+          <LogoComparison
+            logoPair={logoPair}
+            onVote={handleVote}
+            allVoted={allVoted}
+            designBrief={designBrief}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        </div>
+        
+        <div className="mt-12">
+          <Leaderboard entries={leaderboard} />
+        </div>
+      </div>
+    </main>
   );
 }

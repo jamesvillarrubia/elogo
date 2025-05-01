@@ -1,0 +1,26 @@
+designBrief: |
+  We need a logo for a new social media platform that focuses on professional networking and career development.
+  The logo should convey:
+  - Professionalism and trust
+  - Connection and community
+  - Growth and opportunity
+  - Modern and innovative approach
+  - Clean and memorable design
+
+  The target audience is professionals aged 25-45 who are looking to advance their careers and build meaningful professional relationships.
+  The platform will be used for:
+  - Professional networking
+  - Job searching
+  - Industry knowledge sharing
+  - Career development
+  - Professional branding
+
+logos:
+  - name: Twitter
+    url: https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Logo_of_Twitter.svg/512px-Logo_of_Twitter.svg.png
+
+  - name: Facebook
+    url: https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Facebook_f_logo_%282019%29.svg/1200px-Facebook_f_logo_%282019%29.svg.png
+
+  - name: Google
+    url: https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/1200px-Google_2015_logo.svg.png 
