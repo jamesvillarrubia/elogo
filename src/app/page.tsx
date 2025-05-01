@@ -5,6 +5,7 @@ import LogoComparison from '@/components/LogoComparison';
 import Leaderboard from '@/components/Leaderboard';
 import { Logo, LogoPair, LeaderboardEntry } from '@/types';
 import { hasBeenCompared } from '@/lib/cookies';
+import { logEnvironmentVariables } from '@/lib/env';
 
 export default function Home() {
   const [logoPair, setLogoPair] = useState<LogoPair | null>(null);
@@ -44,11 +45,16 @@ export default function Home() {
 
   const fetchLeaderboard = async () => {
     try {
+      console.log('Page: Fetching leaderboard...');
       const response = await fetch('/api/logos/leaderboard');
       if (!response.ok) {
         throw new Error('Failed to fetch leaderboard');
       }
       const data = await response.json();
+      console.log('Page: Leaderboard data received:', data);
+      console.log('Page: Leaderboard data type:', typeof data);
+      console.log('Page: Leaderboard data is array:', Array.isArray(data));
+      console.log('Page: Leaderboard data length:', Array.isArray(data) ? data.length : 'not an array');
       setLeaderboard(data);
       return true;
     } catch (err) {
@@ -88,6 +94,7 @@ export default function Home() {
   useEffect(() => {
     const initialize = async () => {
       console.log('Page: Starting initialization');
+      console.log('REDIS_URL:', process.env.REDIS_URL);
       setIsLoading(true);
       setError(null);
       try {

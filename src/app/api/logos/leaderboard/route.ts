@@ -1,30 +1,35 @@
-import { NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
-import { LeaderboardEntry } from '@/types';
+import { NextResponse } from 'next/server';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
 export async function GET() {
   try {
     // Get all logos from Redis
-    const logos = await redis.hgetall('logos') as Record<string, string>;
-    const logoArray = Object.values(logos).map(logoStr => JSON.parse(logoStr) as LeaderboardEntry);
+    const logos = await redis.hgetall('logos');
+    if (!logos) {
+      return NextResponse.json({ error: 'No logos found' }, { status: 404, headers: corsHeaders });
+    }
 
-    // Sort by ELO rating
-    const sortedLogos = logoArray.sort((a, b) => b.eloRating - a.eloRating);
+    // Parse logos and sort by ELO rating
+    const logosArray = Object.values(logos)
+      .map(logo => JSON.parse(logo as string))
+      .sort((a, b) => b.eloRating - a.eloRating);
 
-    // Calculate win rates
-    const entries = sortedLogos.map(logo => ({
-      ...logo,
-      winRate: logo.totalMatches > 0 ? 
-        (logo.eloRating - 1400) / (logo.totalMatches * 32) : 
-        undefined
-    }));
-
-    return NextResponse.json(entries);
+    return NextResponse.json(logosArray, { headers: corsHeaders });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: corsHeaders });
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
 } 

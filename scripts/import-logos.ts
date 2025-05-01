@@ -3,126 +3,99 @@
  * This script is designed to run during the Vercel build process
  */
 
+import { readFileSync } from 'fs';
+import { load } from 'js-yaml';
 import { redis } from '../src/lib/redis';
-import fs from 'fs';
-import yaml from 'js-yaml';
-import path from 'path';
-import crypto from 'crypto';
 
-// Generate a deterministic ID based on the URL
-function generateLogoId(url: string): string {
-  return `logo_${crypto.createHash('md5').update(url).digest('hex').slice(0, 8)}`;
-}
+// Check if we're in a build environment
+const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
 
-// Helper function to safely parse Redis values
-function parseRedisValue(value: any): any {
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value);
-    } catch (e) {
-      console.error('Error parsing Redis value:', value);
-      throw e;
-    }
-  }
-  return value;
+function generateLogoId(name: string): string {
+  return `logo_${name.toLowerCase().replace(/\s+/g, '_')}`;
 }
 
 async function importLogos() {
+  console.log('Starting logo import process...');
+
+  if (isBuild) {
+    console.log('Build environment detected, skipping logo import');
+    return;
+  }
+
   try {
-    console.log('Starting logo import process...');
-    
-    // Read YAML file
-    const yamlPath = path.join(process.cwd(), 'data', 'logos.yml');
-    const yamlContent = fs.readFileSync(yamlPath, 'utf8');
-    const config = yaml.load(yamlContent) as { designBrief: string; logos: { name: string; url: string }[] };
-    
+    // Read logos from YAML
+    const logosYaml = readFileSync('data/logos.yml', 'utf8');
+    const config = load(logosYaml) as { designBrief: string; logos: Array<{ name: string; url: string }> };
+
     // Store the design brief
     console.log('Storing design brief...');
     console.log('Design brief content:', config.designBrief);
     await redis.set('design_brief', config.designBrief);
     console.log('Design brief stored');
-    
-    // Verify the design brief was stored
-    const storedBrief = await redis.get('design_brief');
-    console.log('Stored design brief:', storedBrief);
-    
-    // Get existing logos from Redis
+
+    // Fetch existing logos from Redis
     console.log('Fetching existing logos from Redis...');
     const existingLogos = await redis.hgetall('logos');
-    console.log('Existing logos from Redis:', JSON.stringify(existingLogos, null, 2));
-    
-    // Create a map of existing logos by URL for quick lookup
-    const existingLogosByUrl = new Map<string, any>();
+    console.log('Existing logos from Redis:', existingLogos);
+
+    // Process existing logos
+    const processedLogos: Record<string, string> = {};
     if (existingLogos) {
-      Object.entries(existingLogos).forEach(([key, value]) => {
-        console.log(`Processing existing logo key: ${key}, value:`, value);
+      for (const [key, value] of Object.entries(existingLogos)) {
+        console.log(`Processing existing logo key: ${key}, value: ${value}`);
         try {
-          const logo = parseRedisValue(value);
+          const logo = JSON.parse(value as string);
+          processedLogos[key] = value as string;
           console.log('Parsed logo:', logo);
-          existingLogosByUrl.set(logo.url, { ...logo, id: key });
         } catch (error) {
-          console.error(`Error processing logo with key ${key}:`, error);
-          throw error;
+          console.error(`Error parsing logo ${key}:`, error);
         }
-      });
-    }
-    
-    // Process each logo from YAML
-    console.log('Processing logos from YAML...');
-    const logosToUpdate: Record<string, string> = {};
-    
-    for (const logo of config.logos) {
-      const logoId = generateLogoId(logo.url);
-      const existingLogo = existingLogosByUrl.get(logo.url);
-      
-      if (existingLogo) {
-        // Preserve existing vote data
-        const updatedLogo = {
-          ...logo,
-          id: logoId,
-          eloRating: existingLogo.eloRating,
-          totalMatches: existingLogo.totalMatches
-        };
-        console.log('Updated logo:', updatedLogo);
-        logosToUpdate[logoId] = JSON.stringify(updatedLogo);
-        console.log(`Preserved existing data for logo ${logo.name}`);
-      } else {
-        // New logo, use default values
-        const newLogo = {
-          ...logo,
-          id: logoId,
-          eloRating: 1400,
-          totalMatches: 0
-        };
-        console.log('New logo:', newLogo);
-        logosToUpdate[logoId] = JSON.stringify(newLogo);
-        console.log(`Added new logo ${logo.name}`);
       }
     }
-    
-    // Update Redis with the processed logos
-    if (Object.keys(logosToUpdate).length > 0) {
-      console.log('Updating Redis with processed logos:', JSON.stringify(logosToUpdate, null, 2));
-      await redis.hset('logos', logosToUpdate);
-      console.log('Logo import completed successfully');
-    } else {
-      console.log('No logos to update');
+
+    // Process logos from YAML
+    console.log('Processing logos from YAML...');
+    for (const logo of config.logos) {
+      const logoId = generateLogoId(logo.name);
+      const logoWithDefaults = {
+        ...logo,
+        id: logoId,
+        eloRating: 1400,
+        totalMatches: 0
+      };
+
+      // If the logo already exists, preserve its ELO rating and total matches
+      if (processedLogos[logoId]) {
+        try {
+          const existingLogo = JSON.parse(processedLogos[logoId]);
+          logoWithDefaults.eloRating = existingLogo.eloRating;
+          logoWithDefaults.totalMatches = existingLogo.totalMatches;
+          console.log(`Preserved existing logo data for ${logo.name}:`, {
+            eloRating: logoWithDefaults.eloRating,
+            totalMatches: logoWithDefaults.totalMatches
+          });
+        } catch (error) {
+          console.error(`Error parsing existing logo ${logoId}:`, error);
+        }
+      }
+
+      console.log(`Adding logo ${logoId}:`, logoWithDefaults);
+      processedLogos[logoId] = JSON.stringify(logoWithDefaults);
     }
-    
+
+    // Store all logos
+    console.log('Storing all logos...');
+    await redis.hset('logos', processedLogos);
+    console.log('Logos stored successfully');
+
   } catch (error) {
-    console.error('Error during logo import:', error);
+    console.error('Error importing logos:', error);
     process.exit(1);
   } finally {
-    // Ensure Redis connection is closed
-    try {
-      await redis.quit();
-      console.log('Redis connection closed');
-    } catch (error) {
-      console.error('Error closing Redis connection:', error);
-    }
+    await redis.quit();
+    console.log('Redis connection closed');
     process.exit(0);
   }
 }
 
-// Run the import process
 importLogos(); 

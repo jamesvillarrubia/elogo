@@ -5,6 +5,12 @@ import path from 'path';
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 // Generate a deterministic ID based on the URL
 function generateLogoId(url: string): string {
   return `logo_${crypto.createHash('md5').update(url).digest('hex').slice(0, 8)}`;
@@ -47,12 +53,19 @@ export async function POST() {
     return NextResponse.json({ 
       success: true, 
       message: `Initialized ${logoCount} logos and design brief` 
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error('Error initializing data:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
-    }, { status: 500 });
+    }, { status: 500, headers: corsHeaders });
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
 } 

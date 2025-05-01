@@ -1,69 +1,63 @@
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
 
 interface Logo {
   id: string;
-  url: string;
   name: string;
+  url: string;
   eloRating: number;
   totalMatches: number;
 }
 
-const sampleLogos: Logo[] = [
-  {
-    id: 'file',
-    url: '/file.svg',
-    name: 'File Logo',
-    eloRating: 1000,
-    totalMatches: 0
-  },
-  {
-    id: 'globe',
-    url: '/globe.svg',
-    name: 'Globe Logo',
-    eloRating: 1000,
-    totalMatches: 0
-  },
-  {
-    id: 'next',
-    url: '/next.svg',
-    name: 'Next.js Logo',
-    eloRating: 1000,
-    totalMatches: 0
-  },
-  {
-    id: 'vercel',
-    url: '/vercel.svg',
-    name: 'Vercel Logo',
-    eloRating: 1000,
-    totalMatches: 0
-  },
-  {
-    id: 'window',
-    url: '/window.svg',
-    name: 'Window Logo',
-    eloRating: 1000,
-    totalMatches: 0
-  }
-];
+async function initDb() {
+  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  const client = createClient({ url: redisUrl });
 
-async function initializeDatabase() {
   try {
-    console.log('Clearing existing data...');
-    await kv.del('logos');
-    
-    console.log('Adding sample logos...');
-    for (const logo of sampleLogos) {
-      await kv.hset('logos', {
-        [logo.id]: JSON.stringify(logo)
-      });
+    console.log('Connecting to Redis...');
+    await client.connect();
+    console.log('Connected successfully');
+
+    // Sample logos
+    const logos: Logo[] = [
+      {
+        id: 'logo_1',
+        name: 'Twitter',
+        url: 'https://upload.wikimedia.org/wikipedia/commons/6/6f/Logo_of_Twitter.svg',
+        eloRating: 1400,
+        totalMatches: 0
+      },
+      {
+        id: 'logo_2',
+        name: 'Facebook',
+        url: 'https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png',
+        eloRating: 1400,
+        totalMatches: 0
+      },
+      {
+        id: 'logo_3',
+        name: 'Google',
+        url: 'https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg',
+        eloRating: 1400,
+        totalMatches: 0
+      }
+    ];
+
+    // Store logos in Redis
+    console.log('Storing logos...');
+    const logosMap: Record<string, string> = {};
+    for (const logo of logos) {
+      logosMap[logo.id] = JSON.stringify(logo);
     }
-    
-    console.log('Database initialized successfully!');
-    process.exit(0);
+    await client.hSet('logos', logosMap);
+    console.log('Logos stored successfully');
+
   } catch (error) {
     console.error('Error initializing database:', error);
     process.exit(1);
+  } finally {
+    await client.quit();
+    console.log('Redis connection closed');
   }
 }
 
-initializeDatabase(); 
+initDb(); 

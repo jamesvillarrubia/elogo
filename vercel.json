@@ -5,5 +5,37 @@
       "src": "package.json",
       "use": "@vercel/next"
     }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1",
+      "has": [
+        {
+          "type": "header",
+          "key": "x-vercel-protection-bypass",
+          "value": "true"
+        }
+      ]
+    }
   ]
 } 
