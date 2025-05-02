@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "import-logos": "tsx scripts/import-logos.ts",
+    "import-logos-prod": "tsx scripts/import-logos-prod.ts",
     "inspect-redis": "tsx scripts/inspect-redis.ts",
     "clear-redis": "tsx scripts/clear-redis.ts",
     "redis:up": "docker-compose up -d redis",

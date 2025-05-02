@@ -27,14 +27,42 @@ designBrief: |
   - Professional branding
 
 logos:
-  - name: Twitter
-    url: https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Logo_of_Twitter.svg/512px-Logo_of_Twitter.svg.png
 
-  - name: Facebook
-    url: https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Facebook_f_logo_%282019%29.svg/1200px-Facebook_f_logo_%282019%29.svg.png
+  - name: small print
+    url: /small print.jpg
 
-  - name: CatCafe
-    url: https://images.pexels.com/photos/45201/kitty-cat-kitten-pet-45201.jpeg?auto=compress&cs=tinysrgb&w=800
+  - name: weave
+    url: /weave.jpg
 
-  - name: LinkedIn
-    url: https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/640px-LinkedIn_logo_initials.png
+  - name: med print
+    url: /med print.jpg
+
+  - name: s-dots ud
+    url: /s-dots ud.jpg
+
+  - name: chain lr
+    url: /chain lr.jpg
+
+  - name: chain ud
+    url: /chain ud.jpg
+
+  - name: thin loop
+    url: /thin loop.jpg
+
+  - name: thick loop
+    url: /thick loop.jpg
+
+  - name: diamond
+    url: /diamond.jpg
+
+  - name: large print
+    url: /large print.jpg
+
+  - name: s-dots lr
+    url: /s-dots lr.jpg
+
+  - name: shield
+    url: /shield.jpg
+
+  - name: circle
+    url: /circle.jpg
